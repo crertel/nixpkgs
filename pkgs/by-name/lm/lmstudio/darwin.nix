@@ -38,24 +38,10 @@ stdenv.mkDerivation {
     local indexJs="$out/Applications/LM Studio.app/Contents/Resources/app/.webpack/main/index.js"
     substituteInPlace "$indexJs" --replace-quiet "'/Applications'" "'/'"
 
-    # Re-sign the app bundle after patching, otherwise macOS reports it as damaged
-    # Note: sigtool (used in Nix) only signs individual Mach-O files, not bundles
-    # Sign all Mach-O binaries (executables and libraries) inside the bundle
+    # Re-sign the main executable, otherwise macOS reports the app as damaged
     appBundle="$out/Applications/LM Studio.app"
-
-    /usr/bin/codesign --force --sign - "$mainExe"
-
-    # Sign nested frameworks and libraries
-    find "$appBundle/Contents/Frameworks" -type f \( -name "*.dylib" -o -name "*.so" \) | while read -r file; do
-      /usr/bin/codesign --force --sign - "$file"
-    done
-
-    # Sign executables inside any nested .app bundles (but not the bundles themselves)
-    find "$appBundle/Contents" -path "*/Contents/MacOS/*" -type f -perm +111 | while read -r file; do
-      if file "$file" 2>/dev/null | grep -q "Mach-O"; then
-        /usr/bin/codesign --force --sign - "$file"
-      fi
-    done
+    mainExe="$appBundle/Contents/MacOS/LM Studio"
+    codesign --force --sign - "$mainExe"
 
     runHook postInstall
   '';
